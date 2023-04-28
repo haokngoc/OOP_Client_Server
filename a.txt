@@ -1,0 +1,8 @@
+    
+
+A,Chức năng ở máy trạm và máy chủ 
+
+1, Máy chủ:
+    Quản lý và lưu trữ thông tin khách hàng, thông tin xe cho thuê, thông tin đặt xe, thông tin đơn hàng, v.v. của toàn bộ hệ thống cho thuê ô tô.
+    Xử lý các yêu cầu đặt xe, hủy đơn hàng, trả xe, tính giá thuê, v.v. từ các máy trạm khác.
+    Cung cấp dịch vụ truy cập và xử lý dữ liệu cho các máy t
