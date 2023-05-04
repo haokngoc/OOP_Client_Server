@@ -12,16 +12,71 @@
 #include <openssl/md5.h>
 #include <json-c/json.h>
 
+using namespace std;
+
 #define PORT 8080
 #define BUFFER_SIZE 1024
 
+class File {
+private:
+    int file_size;
+    string md5sum;
+    string file_name;   
+public:
+    void set_file_size(int size) {
+        file_size = size;
+    }
+    void set_file_name(string name) {
+        file_name = name;
+    }
+
+    void calculate_md5() {
+        unsigned char c[MD5_DIGEST_LENGTH];
+        int i;
+        FILE *inFile = fopen(file_name.c_str(), "rb");
+        MD5_CTX mdContext;
+        int bytes;
+        unsigned char data[1024];
+
+        if (inFile == NULL) {
+            cout << "File " << file_name << " can't be opened." << endl;
+            return;
+        }
+
+        MD5_Init(&mdContext);
+        while ((bytes = fread(data, 1, 1024, inFile)) != 0) {
+            MD5_Update(&mdContext, data, bytes);
+        }
+
+        MD5_Final(c, &mdContext);
+
+        for (i = 0; i < MD5_DIGEST_LENGTH; i++) {
+            char tmp[3];
+            sprintf(tmp, "%02x", c[i]);
+            md5sum += tmp;
+        }
+
+        fclose(inFile);
+    }
+
+    int get_file_size() const {
+        return file_size;
+    }
+
+    string get_md5sum() const {
+        return md5sum;
+    }
+
+    string get_file_name() const {
+        return file_name;
+    }
+};
 class Server {
 public:
     Server();
     ~Server();
     void run();
 private:
-    void calculate_md5(char *filename, char *md5_str);
     int create_socket();
     void set_socket_options(int socket_fd);
     void bind_socket(int socket_fd, struct sockaddr_in address);
@@ -34,6 +89,7 @@ private:
     char buffer[1024] = {0};
     char message[BUFFER_SIZE];
     int num_requests = 0;
+    File file;
 };
 
 Server::Server() {
@@ -108,34 +164,6 @@ void Server::run() {
     }
 }
 
-void Server::calculate_md5(char *filename, char *md5_str) {
-    unsigned char c[MD5_DIGEST_LENGTH];
-    int i;
-    FILE *inFile = fopen (filename, "rb");
-    MD5_CTX mdContext;
-    int bytes;
-    unsigned char data[1024];
-
-    if (inFile == NULL) {
-        printf("%s can't be opened.\n", filename);
-    }
-
-    MD5_Init (&mdContext);
-    while ((bytes = fread (data, 1, 1024, inFile)) != 0)
-    {
-        MD5_Update (&mdContext, data, bytes);
-    }
-        
-    MD5_Final (c,&mdContext);
-
-    for(i = 0; i < MD5_DIGEST_LENGTH; i++) {
-        sprintf(&md5_str[i*2], "%02x", c[i]);
-    }
-    md5_str[MD5_DIGEST_LENGTH*2] = '\0';
-    
-    fclose (inFile);
-}
-
 int Server::create_socket() {
     int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (socket_fd == 0) {
@@ -172,7 +200,7 @@ void Server::listen_for_connections(int socket_fd) {
 }
 
 void Server::send_file_info(int new_socket, char* filename) {
-    char md5_str[MD5_DIGEST_LENGTH*2 +1];
+    string md5_str;
     int file_descriptor = open(filename, O_RDONLY);
     if (file_descriptor == -1) {
         perror("Failed to open file");
@@ -181,13 +209,18 @@ void Server::send_file_info(int new_socket, char* filename) {
 
     int file_size = lseek(file_descriptor, 0, SEEK_END);
     lseek(file_descriptor, 0, SEEK_SET);
-    calculate_md5(filename, md5_str);       
-    printf("md5: %s\n",md5_str);
+    file.set_file_name(filename);
+    file.calculate_md5();
+
+    md5_str = file.get_md5sum();
+    cout << "MD5_sum: " << md5_str << endl;
+    const char *md5sum = md5_str.data();
     json_object *info_file = json_object_new_object();
+
     // thêm thông tin của file vào đối tượng JSON
     json_object_object_add(info_file, "filename", json_object_new_string(filename));
     json_object_object_add(info_file, "file_size", json_object_new_int(file_size));
-    json_object_object_add(info_file, "md5_str", json_object_new_string(md5_str));
+    json_object_object_add(info_file, "md5_str", json_object_new_string(md5sum));
 
     // gửi Json tới client
     const char *json_str = json_object_to_json_string(info_file);
