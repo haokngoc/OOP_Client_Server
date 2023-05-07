@@ -75,14 +75,14 @@ class Server {
 public:
     Server();
     ~Server();
-    void run();
-private:
     int create_socket();
     void set_socket_options(int socket_fd);
     void bind_socket(int socket_fd, struct sockaddr_in address);
     void listen_for_connections(int socket_fd);
     void send_file_info(int new_socket, char* filename);
     void send_file_to_client(int new_socket, const char *filename);
+    void run();
+private:
     int server_fd;
     struct sockaddr_in address;
     int addrlen = sizeof(address);
